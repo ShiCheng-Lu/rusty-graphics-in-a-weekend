@@ -1,4 +1,1 @@
 # rusty-raytracing
-
-
-# rusty-raytracing
