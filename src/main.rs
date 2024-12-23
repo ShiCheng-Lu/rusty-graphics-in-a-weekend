@@ -1,22 +1,32 @@
+use std::sync::Arc;
+
+use material::{Lambertian, Metal};
 use sphere::Sphere;
 use hittable::{Hittable, HittableArray};
 use camera::Camera;
 use ray::{Interval, Ray};
-use vec3::Vec3f;
+use vec3::{Colour, Vec3f};
 
 mod vec3;
 mod ray;
 mod sphere;
 mod hittable;
 mod camera;
+mod material;
 
 fn main() {
+    let material_ground = Arc::new(Lambertian::new(Colour::new(0.8, 0.8, 0.0)));
+    let material_center = Arc::new(Lambertian::new(Colour::new(0.1, 0.2, 0.5)));
+    let material_left   = Arc::new(Metal::new(Colour::new(0.8, 0.8, 0.8), 0.3));
+    let material_right  = Arc::new(Metal::new(Colour::new(0.8, 0.6, 0.2), 1.0));
 
     let mut world = HittableArray::new();
-    world.add(Sphere::new(0.0, 0.0, -1.0, 0.5));
-    world.add(Sphere::new(0.0,-100.5,-1.0, 100.0));
+    world.add(Arc::new(Sphere::new( 0.0, -100.5, -1.0, 100.0, material_ground)));
+    world.add(Arc::new(Sphere::new( 0.0,    0.0, -1.2,   0.5, material_center)));
+    world.add(Arc::new(Sphere::new(-1.0,    0.0, -1.0,   0.5, material_left)));
+    world.add(Arc::new(Sphere::new( 1.0,    0.0, -1.0,   0.5, material_right)));
 
     let camera = Camera::new(400, 16.0 / 9.0);
 
-    camera.render(&world);
+    camera.render(world);
 }

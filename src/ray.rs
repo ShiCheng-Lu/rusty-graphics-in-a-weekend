@@ -9,7 +9,6 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(origin: &Point3f, direction: &Vec3f) -> Ray {
-        // let direction_len = direction.length();
         return Ray {
             origin: origin.clone(),
             direction: direction.clone(),
@@ -29,7 +28,7 @@ pub struct Interval {
 impl Interval {
     pub const ALL: Interval = Interval { min: f32::INFINITY, max: f32::NEG_INFINITY };
     pub const EMPTY: Interval = Interval { min: f32::NEG_INFINITY, max: f32::INFINITY };
-    pub const FORWARD: Interval = Interval { min: 0.0, max: f32::INFINITY };
+    pub const RAY: Interval = Interval { min: 0.001, max: f32::INFINITY };
 
     pub fn new(min: f32, max: f32) -> Interval {
         return Interval {

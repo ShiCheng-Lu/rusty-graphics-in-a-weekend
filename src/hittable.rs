@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::material::Material;
 use crate::ray::{Ray, Interval};
 use crate::vec3::Vec3f;
 
@@ -5,13 +8,14 @@ pub struct HitResult {
     pub at: f32,
     pub location: Vec3f,
     pub normal: Vec3f,
+    pub material: Arc<dyn Material>,
 }
 
 pub trait Hittable {
     fn hit(&self, ray: &Ray, interval: &Interval) -> Option<HitResult>;
 }
 pub struct HittableArray {
-    pub array: Vec<Box<dyn Hittable>>
+    pub array: Vec<Arc<dyn Hittable + Send + Sync>>
 }
 
 impl HittableArray {
@@ -21,8 +25,8 @@ impl HittableArray {
         }
     }
 
-    pub fn add<T: 'static + Hittable>(& mut self, value: T) {
-        self.array.push(Box::new(value));
+    pub fn add(& mut self, value: Arc<dyn Hittable + Send + Sync>) {
+        self.array.push(value);
     }
 }
 

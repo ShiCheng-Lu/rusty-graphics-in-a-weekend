@@ -1,4 +1,9 @@
+use core::f32;
 use std::ops;
+
+use rand::random;
+
+use crate::ray::Interval;
 
 
 #[derive(Clone)]
@@ -43,6 +48,33 @@ impl Vec3f {
             a.e[2] * b.e[0] - a.e[0] * b.e[2],
             a.e[0] * b.e[1] - a.e[1] * b.e[0]
         ] };
+    }
+
+    pub fn random(min: f32, max: f32) -> Vec3f {
+        let range = max - min;
+        return Vec3f::new(
+            random::<f32>() * range + min,
+            random::<f32>() * range + min,
+            random::<f32>() * range + min,
+        );
+    }
+
+    pub fn random_orientation() -> Vec3f {
+        let valid_range = Interval::new(f32::EPSILON, 1.0);
+        let mut vector = Vec3f::random(-1.0, 1.0);
+        while !valid_range.contains(vector.length_squared()) {
+            vector = Vec3f::random(-1.0, 1.0);
+        }
+        vector /= vector.length();
+        return vector;
+    }
+
+    pub fn is_nearly_zero(&self) -> bool {
+        return self.e[0].abs() <= f32::EPSILON && self.e[1].abs() <= f32::EPSILON && self.e[2].abs() <= f32::EPSILON
+    }
+
+    pub fn reflect(&self, normal: &Vec3f) -> Vec3f {
+        return self.clone() - normal.clone() * 2.0 * Vec3f::dot(self, normal);
     }
 }
 
@@ -114,6 +146,19 @@ impl ops::Mul<f32> for Vec3f {
             self.e[0] * rhs,
             self.e[1] * rhs,
             self.e[2] * rhs,
+        ] }
+    }
+}
+
+
+impl ops::Mul<Vec3f> for Vec3f {
+    type Output = Vec3f;
+
+    fn mul(self, rhs: Vec3f) -> Self::Output {
+        return Vec3f { e: [
+            self.e[0] * rhs.e[0],
+            self.e[1] * rhs.e[1],
+            self.e[2] * rhs.e[2],
         ] }
     }
 }

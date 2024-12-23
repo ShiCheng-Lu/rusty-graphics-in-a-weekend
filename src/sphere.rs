@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::material::{self, Material};
 use crate::vec3::{Point3f, Vec3f};
 use crate::ray::{Ray, Interval};
 use crate::hittable::{HitResult, Hittable};
@@ -6,13 +9,15 @@ use crate::hittable::{HitResult, Hittable};
 pub struct Sphere {
     pub center: Point3f,
     pub radius: f32,
+    pub material: Arc<dyn Material + Send + Sync>,
 }
 
 impl Sphere {
-    pub fn new(x: f32, y: f32, z: f32, radius: f32) -> Sphere {
+    pub fn new(x: f32, y: f32, z: f32, radius: f32, material: Arc<dyn Material + Send + Sync>) -> Sphere {
         return Sphere {
             center: Vec3f::new(x, y, z),
             radius,
+            material,
         }
     }
 }
@@ -38,15 +43,16 @@ impl Hittable for Sphere {
             if !interval.surrounds(root) {
                 return Option::None;
             }
-            println!("here");
         }
         let location = ray.at(root);
         let normal = (location.clone() - self.center.clone()) / self.radius;
+        let material = self.material.clone();
 
         return Option::Some(HitResult {
             at: root,
             location,
-            normal
+            normal,
+            material,
         })
     }
 }
