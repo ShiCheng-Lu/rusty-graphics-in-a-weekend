@@ -1,27 +1,22 @@
-use vec3::{Point3f, Vec3f};
+use sphere::Sphere;
+use hittable::{Hittable, HittableArray};
+use camera::Camera;
+use ray::{Interval, Ray};
+use vec3::Vec3f;
 
 mod vec3;
 mod ray;
+mod sphere;
+mod hittable;
+mod camera;
 
 fn main() {
-    let image_width: u32 = 256;
-    let image_height: u32 = 256;
 
-    let mut colour: Vec3f = Vec3f::new(23.0, 23.0, 123.0);
-    colour /= 100.0;
+    let mut world = HittableArray::new();
+    world.add(Sphere::new(0.0, 0.0, -1.0, 0.5));
+    world.add(Sphere::new(0.0,-100.5,-1.0, 100.0));
 
-    print!("P3\n{image_width} {image_height}\n255\n");
+    let camera = Camera::new(400, 16.0 / 9.0);
 
-    let origin: Point3f = Point3f::new(0.0, 0.0, 0.0);
-
-    for y in 0..image_height {
-        for x in 0..image_width {
-            let r = colour.x();
-            let g = colour.y();
-            let b = colour.z();
-
-            println!("{r} {g} {b}");
-        }
-    }
-
+    camera.render(&world);
 }
