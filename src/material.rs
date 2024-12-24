@@ -1,3 +1,5 @@
+use rand::random;
+
 use crate::hittable::HitResult;
 use crate::ray::Ray;
 use crate::vec3::{Colour, Vec3f};
@@ -83,22 +85,41 @@ impl Dielectric {
         }
     }
 
-    fn refract(ray: &Vec3f, normal: &Vec3f, refractive_ratio: f32) -> Vec3f {
-        let ray_perp = (ray.clone() + normal.clone() * Vec3f::dot(&ray, &normal)) * refractive_ratio;
-        let ray_parallel = - normal.clone() * (1.0 - ray_perp.length_squared()).sqrt();
-        return ray_perp + ray_parallel;
+    fn reflected(&self, cos_theta: f32, refractive_ratio: f32) -> bool {
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+        // total internal reflection
+        if refractive_ratio * sin_theta > 1.0 {
+            return true;
+        }
+        // Schlick's approximation for reflectance.
+        let r0 = (1.0 - refractive_ratio) / (1.0 + refractive_ratio);
+        let r0 = r0 * r0;
+        let probability = r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5);
+
+        if random::<f32>() < probability {
+            return true;
+        }
+        return false;
     }
 }
 
 impl Material for Dielectric {
     fn scatter(&self, in_ray: &Ray, hit_result: &HitResult) -> ScatterResult {
         let attenuation = Colour::new(1.0, 1.0, 1.0);
-        let internal = Vec3f::dot(&hit_result.normal, &in_ray.direction) < 0.0;
+        let internal = Vec3f::dot(&hit_result.normal, &in_ray.direction) > 0.0;
+        
         let refractive_ratio = if internal { self.refractive_index } else { 1.0 / self.refractive_index };
         let normal = if internal { -hit_result.normal.clone() } else { hit_result.normal.clone() };
+
         let ray_direction = in_ray.direction.clone() / in_ray.direction.length();
-        let refracted_ray = Dielectric::refract(&ray_direction, &normal, refractive_ratio);
-        let ray = Ray::new(&hit_result.location, &refracted_ray);
+        let cos_theta = f32::min(-Vec3f::dot(&ray_direction, &normal), 1.0);
+        
+        let result_ray = if self.reflected(cos_theta, refractive_ratio) {
+            ray_direction.reflect(&normal)
+        } else {
+            ray_direction.refract(&normal, refractive_ratio)
+        };
+        let ray = Ray::new(&hit_result.location, &result_ray);
         
         return ScatterResult {
             scattered: true,

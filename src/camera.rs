@@ -22,14 +22,16 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(width: usize, aspect_ratio: f32) -> Camera {
+    pub fn new(width: usize, aspect_ratio: f32, fov: f32) -> Camera {
         let image_width = width;
         let image_height = ((image_width as f32) / aspect_ratio) as usize;
+
+        
         let viewport_height = 2.0;
         let viewport_width = viewport_height * (image_width as f32) / (image_height as f32);
         let width_scale = viewport_width / (image_width as f32);
         let height_scale = viewport_height / (image_height as f32);
-        let sample_depth = 10;
+        let sample_depth = 20;
         let samples = 10;
         let thread_count = 10;
         let sample_scale = 1.0 / (samples as f32 * thread_count as f32);
@@ -127,8 +129,6 @@ impl Camera {
     }
 
     pub fn render(self, world: HittableArray) {
-        let thread_count = 10;
-
         let mut threads = vec![];
 
         let c_arc = Arc::new(self);

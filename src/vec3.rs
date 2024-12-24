@@ -76,6 +76,14 @@ impl Vec3f {
     pub fn reflect(&self, normal: &Vec3f) -> Vec3f {
         return self.clone() - normal.clone() * 2.0 * Vec3f::dot(self, normal);
     }
+
+    pub fn refract(&self, normal: &Vec3f, refractive_ratio: f32) -> Vec3f {
+        let cos_theta = f32::min(-Vec3f::dot(self, normal), 1.0);
+        let ray_perp = (self.clone() + normal.clone() * cos_theta) * refractive_ratio;
+        let ray_parallel = - normal.clone() * (1.0 - ray_perp.length_squared()).abs().sqrt();
+        return ray_perp + ray_parallel;
+    }
+
 }
 
 impl ToString for Vec3f {
