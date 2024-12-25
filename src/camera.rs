@@ -4,36 +4,42 @@ use std::thread;
 use crate::hittable::{Hittable, HittableArray};
 use crate::ray::{Ray, Interval};
 use crate::vec3::{Colour, Point3f, Vec3f};
-use rand::Rng;
+use rand::{random, Rng};
 
 pub struct Camera {
     orientation: Ray,
     image_size: (usize, usize),
     pixel_topleft: Vec3f,
     pixel_delta: (Vec3f, Vec3f),
+    defocus_delta: (Vec3f, Vec3f),
     samples: i32,
     sample_scale: f32,
     sample_depth: i32,
     thread_count: usize,
+    defocus_blur: f32,
 }
 
 impl Camera {
-    pub fn new(image_size: (usize, usize), origin: Vec3f, look_at: Vec3f, fov: f32) -> Camera {
-        let viewport_width =  f32::tan(fov.clamp(0.0, 170.0).to_radians() / 2.0);
+    pub fn new(image_size: (usize, usize), origin: Vec3f, look_at: Vec3f, fov: f32, defocus_blur: f32, focus_distance: f32) -> Camera {
+        let viewport_width =  f32::tan(fov.clamp(0.0, 170.0).to_radians() / 2.0) * focus_distance;
         let viewport_height = viewport_width * (image_size.1 as f32) / (image_size.0 as f32);
 
         let look_direction = (look_at - origin.clone()).normalize();
         let look_up = Vec3f::new(0.0, 1.0, 0.0);
 
-        let pixel_delta_x = Vec3f::cross(&look_direction, &look_up);
-        let pixel_delta_y = Vec3f::cross(&look_direction, &pixel_delta_x);
+        let viewport_x = Vec3f::cross(&look_direction, &look_up);
+        let viewport_y = Vec3f::cross(&look_direction, &viewport_x);
 
-        let pixel_topleft = origin.clone() + look_direction.clone();
-        let pixel_topleft = pixel_topleft - pixel_delta_y.clone() / 2.0 * viewport_height;
-        let pixel_topleft = pixel_topleft - pixel_delta_x.clone() / 2.0 * viewport_width;
+        let pixel_topleft = origin.clone() + look_direction.clone() * focus_distance;
+        let pixel_topleft = pixel_topleft - viewport_y.clone() / 2.0 * viewport_height;
+        let pixel_topleft = pixel_topleft - viewport_x.clone() / 2.0 * viewport_width;
 
-        let pixel_delta_x = pixel_delta_x * viewport_width / (image_size.0 as f32);
-        let pixel_delta_y = pixel_delta_y * viewport_height / (image_size.1 as f32);
+        let pixel_delta_x = viewport_x.clone() * viewport_width / (image_size.0 as f32);
+        let pixel_delta_y = viewport_y.clone() * viewport_height / (image_size.1 as f32);
+
+        let defocus_radius = f32::tan(defocus_blur.to_radians() / 2.0) * focus_distance;
+        let defocus_delta_x = viewport_x.clone() * defocus_radius;
+        let defocus_delta_y = viewport_y.clone() * defocus_radius;
 
         let sample_depth = 20;
         let samples = 10;
@@ -45,10 +51,12 @@ impl Camera {
             image_size,
             pixel_topleft,
             pixel_delta: (pixel_delta_x, pixel_delta_y),
+            defocus_delta: (defocus_delta_x, defocus_delta_y),
             samples,
             sample_scale,
             sample_depth,
             thread_count,
+            defocus_blur,
         };
     }
 
@@ -83,6 +91,19 @@ impl Camera {
             },
         }
     }
+
+    fn rand_defocus(&self) -> Vec3f {
+        if self.defocus_blur <= 0.0 {
+            return Vec3f::new(0.0, 0.0, 0.0);
+        }
+        let mut x: f32 = random();
+        let mut y: f32 = random();
+        while x * x + y * y > 1.0 {
+            x = random();
+            y = random();
+        } 
+        return self.defocus_delta.0.clone() * x + self.defocus_delta.1.clone() * y;
+    }
     
     fn get_ray(&self, image_x: usize, image_y: usize) -> Ray {
         let dx: f32 = rand::thread_rng().gen::<f32>() - 0.5;
@@ -91,7 +112,7 @@ impl Camera {
         let x = self.pixel_delta.0.clone() * (image_x as f32 + dx);
         let y = self.pixel_delta.1.clone() * (image_y as f32 + dy);
 
-        let origin = self.orientation.origin.clone();
+        let origin = self.orientation.origin.clone() + self.rand_defocus();
 
         let direction = self.pixel_topleft.clone() + x + y - origin.clone();
         return Ray::new(&origin, &direction);
