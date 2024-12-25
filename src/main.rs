@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use material::{Dielectric, Lambertian, Metal};
 use sphere::Sphere;
-use hittable::{Hittable, HittableArray};
+use hittable::HittableArray;
 use camera::Camera;
-use ray::{Interval, Ray};
 use vec3::{Colour, Vec3f};
 
 mod vec3;
@@ -29,7 +28,7 @@ fn main() {
     world.add(Arc::new(Sphere::new(-1.0,    0.0, -1.0,   0.4, material_bubble)));
     world.add(Arc::new(Sphere::new( 1.0,    0.0, -1.0,   0.5, material_right)));
 
-    let camera = Camera::new(400, 16.0 / 9.0);
+    let camera = Camera::new((400, 300), Vec3f::new(-2.0, 2.0, 1.0), Vec3f::new(0.0, 0.0, -1.0), 60.0);
 
     camera.render(world);
 }

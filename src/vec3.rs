@@ -84,6 +84,10 @@ impl Vec3f {
         return ray_perp + ray_parallel;
     }
 
+    pub fn normalize(&self) -> Vec3f {
+        let length = self.length();
+        return self.clone() / length;
+    }
 }
 
 impl ToString for Vec3f {

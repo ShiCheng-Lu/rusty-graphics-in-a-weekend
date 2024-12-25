@@ -8,13 +8,9 @@ use rand::Rng;
 
 pub struct Camera {
     orientation: Ray,
-    focal_length: f32,
-    image_width: usize,
-    image_height: usize,
-    viewport_width: f32,
-    viewport_height: f32,
-    width_scale: f32,
-    height_scale: f32,
+    image_size: (usize, usize),
+    pixel_topleft: Vec3f,
+    pixel_delta: (Vec3f, Vec3f),
     samples: i32,
     sample_scale: f32,
     sample_depth: i32,
@@ -22,29 +18,33 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(width: usize, aspect_ratio: f32, fov: f32) -> Camera {
-        let image_width = width;
-        let image_height = ((image_width as f32) / aspect_ratio) as usize;
+    pub fn new(image_size: (usize, usize), origin: Vec3f, look_at: Vec3f, fov: f32) -> Camera {
+        let viewport_width =  f32::tan(fov.clamp(0.0, 170.0).to_radians() / 2.0);
+        let viewport_height = viewport_width * (image_size.1 as f32) / (image_size.0 as f32);
 
-        
-        let viewport_height = 2.0;
-        let viewport_width = viewport_height * (image_width as f32) / (image_height as f32);
-        let width_scale = viewport_width / (image_width as f32);
-        let height_scale = viewport_height / (image_height as f32);
+        let look_direction = (look_at - origin.clone()).normalize();
+        let look_up = Vec3f::new(0.0, 1.0, 0.0);
+
+        let pixel_delta_x = Vec3f::cross(&look_direction, &look_up);
+        let pixel_delta_y = Vec3f::cross(&look_direction, &pixel_delta_x);
+
+        let pixel_topleft = origin.clone() + look_direction.clone();
+        let pixel_topleft = pixel_topleft - pixel_delta_y.clone() / 2.0 * viewport_height;
+        let pixel_topleft = pixel_topleft - pixel_delta_x.clone() / 2.0 * viewport_width;
+
+        let pixel_delta_x = pixel_delta_x * viewport_width / (image_size.0 as f32);
+        let pixel_delta_y = pixel_delta_y * viewport_height / (image_size.1 as f32);
+
         let sample_depth = 20;
         let samples = 10;
         let thread_count = 10;
         let sample_scale = 1.0 / (samples as f32 * thread_count as f32);
 
         return Camera {
-            orientation: Ray::new(&Vec3f::ZERO, &Vec3f::new(0.0, 0.0, 1.0)),
-            focal_length: 1.0,
-            image_width,
-            image_height,
-            viewport_width,
-            viewport_height,
-            width_scale,
-            height_scale,
+            orientation: Ray::new(&origin, &look_direction),
+            image_size,
+            pixel_topleft,
+            pixel_delta: (pixel_delta_x, pixel_delta_y),
             samples,
             sample_scale,
             sample_depth,
@@ -88,11 +88,13 @@ impl Camera {
         let dx: f32 = rand::thread_rng().gen::<f32>() - 0.5;
         let dy: f32 = rand::thread_rng().gen::<f32>() - 0.5;
         
-        let x = (image_x as f32 + dx) * self.width_scale - self.viewport_width * 0.5;
-        let y = (image_y as f32 + dy) * self.height_scale - self.viewport_height * 0.5;
+        let x = self.pixel_delta.0.clone() * (image_x as f32 + dx);
+        let y = self.pixel_delta.1.clone() * (image_y as f32 + dy);
 
-        let direction = Point3f::new(x, -y, -self.focal_length);
-        return Ray::new(&self.orientation.origin, &direction);
+        let origin = self.orientation.origin.clone();
+
+        let direction = self.pixel_topleft.clone() + x + y - origin.clone();
+        return Ray::new(&origin, &direction);
     }
 
     fn linear_to_gamma(value: f32) -> f32 {
@@ -115,13 +117,13 @@ impl Camera {
     }
 
     pub fn render_iteration(&self, world: &HittableArray) -> Vec<Colour> {
-        let mut image = vec![Colour::ZERO; self.image_height * self.image_width];
+        let mut image = vec![Colour::ZERO; self.image_size.0 * self.image_size.1];
         
-        for image_y in 0..(self.image_height) {
-            for image_x in 0..(self.image_width) {
+        for image_y in 0..(self.image_size.1) {
+            for image_x in 0..(self.image_size.0) {
                 let ray = self.get_ray(image_x, image_y);
                 let colour = self.ray_colour(&ray, world, self.sample_depth);
-                image[image_y * self.image_width + image_x] = colour;
+                image[image_y * self.image_size.0 + image_x] = colour;
             }
         }
 
@@ -138,7 +140,7 @@ impl Camera {
             let camera_arc = c_arc.clone();
             let world_arc = w_arc.clone();
             threads.push(thread::spawn(move || {
-                let mut image = vec![Colour::ZERO; camera_arc.image_height * camera_arc.image_width];
+                let mut image = vec![Colour::ZERO; camera_arc.image_size.0 * camera_arc.image_size.1];
                 for _ in 0..camera_arc.samples {
                     let layer = camera_arc.render_iteration(&world_arc);
                     for i in 0..image.len() {
@@ -149,7 +151,7 @@ impl Camera {
             }));
         }
 
-        let mut image = vec![Colour::ZERO; c_arc.image_height * c_arc.image_width];
+        let mut image = vec![Colour::ZERO; c_arc.image_size.0 * c_arc.image_size.1];
         for thread in threads {
             match thread.join() {
                 Ok(layer) => {
@@ -163,7 +165,7 @@ impl Camera {
             };
         }
 
-        print!("P3\n{} {}\n255\n", c_arc.image_width, c_arc.image_height);
+        print!("P3\n{} {}\n255\n", c_arc.image_size.0, c_arc.image_size.1);
 
         for colour in image {
             println!("{}", Camera::to_colour(colour * c_arc.sample_scale));
